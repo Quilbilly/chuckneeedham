@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>About — Chuck Needham</title>
+  <meta name="description" content="About Chuck Needham.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Schibsted+Grotesk:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="page-inner">
+
+  <nav class="site-nav site-nav--solid" aria-label="Main">
+    <a class="site-nav__brand" href="index.html">Chuck Needham</a>
+    <div class="site-nav__links">
+      <a href="about.html" aria-current="page">About</a>
+      <a href="gallery.html">Gallery</a>
+    </div>
+  </nav>
+
+  <header class="page-hero">
+    <p class="page-hero__eyebrow">About</p>
+    <h1>A few words</h1>
+    <p class="page-hero__lede">Replace this copy with your story — background, interests, and whatever you want visitors to know.</p>
+  </header>
+
+  <main class="wrap">
+    <article class="prose">
+      <p>Hi — I’m Chuck Needham. This site is a home for my photo gallery and a short introduction to who I am.</p>
+      <p>I live in Washington and care about family, making things work, and keeping a visual record of the places and people that matter.</p>
+      <p>The gallery is the heart of this site. New albums and photos will show up there as I add them.</p>
+      <h2>Say hello</h2>
+      <p>If you’d like to get in touch, reach me at <a href="mailto:chuck@chuckneedham.com">chuck@chuckneedham.com</a> — update this address if you prefer another.</p>
+    </article>
+  </main>
+
+  <footer class="site-footer">
+    <p>&copy; <span id="year"></span> Chuck Needham</p>
+    <p><a href="index.html">Home</a> · <a href="gallery.html">Gallery</a></p>
+  </footer>
+
+  <script>
+    document.getElementById("year").textContent = new Date().getFullYear();
+  </script>
+</body>
+</html>

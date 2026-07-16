@@ -1,0 +1,85 @@
+ICDSoft deploy — chuckneedham.com (personal site)
+=================================================
+
+Same host pattern as suzieq. This site is the apex domain root.
+
+GitHub:  https://github.com/Quilbilly/chuckneeedham
+Panel:   https://panel.s414.sureserver.com/
+SSH:     chuckneedham@s414.sureserver.com
+Live:    /home/chuckneedham/www  → https://chuckneedham.com
+
+IMPORTANT
+---------
+Do NOT push to the icdsoft remote until the one-time server setup below
+is done. Pushing early will fail or leave the site half-deployed.
+
+Control Panel "Git" storage under /private/git.repostorage does NOT
+update the live site. Use the bare repo + post-receive hook instead.
+
+--------------------------------------------------------------------
+ONE-TIME SETUP ON THE SERVER (SSH) — REQUIRED BEFORE LIVE PUBLISH
+--------------------------------------------------------------------
+ssh chuckneedham@s414.sureserver.com
+
+Then paste:
+
+cd ~/private
+mkdir -p chuckneeedham-deploy.git
+cd chuckneeedham-deploy.git
+git --bare init --initial-branch=main
+
+cat > hooks/post-receive <<'EOF'
+#!/bin/sh
+GIT_WORK_TREE=/home/chuckneedham/www git checkout -f
+EOF
+
+chmod +x hooks/post-receive
+
+Confirm:
+  ls -l hooks/post-receive
+  cat hooks/post-receive
+
+NOTE: The work tree is /home/chuckneedham/www (chuckneedham.com document
+root). A push will replace files in that directory with this repo's tree.
+Back up anything already in /www that you need to keep.
+
+--------------------------------------------------------------------
+ON YOUR PC (remotes)
+--------------------------------------------------------------------
+From C:\Users\chuck\Projects\chuckneeedham:
+
+  git remote add origin https://github.com/Quilbilly/chuckneeedham.git
+  git remote add icdsoft chuckneedham@s414.sureserver.com:/home/chuckneedham/private/chuckneeedham-deploy.git
+
+GitHub only (safe anytime):
+
+  git push -u origin main
+  # or:  .\deploy.ps1 -GitHubOnly
+
+Live host (ONLY after one-time SSH setup above):
+
+  git push icdsoft main
+  # or:  .\deploy.ps1
+
+--------------------------------------------------------------------
+AUTOMATIC PUBLISH FROM GITHUB (optional)
+--------------------------------------------------------------------
+After the bare repo + SSH key are ready:
+
+1. Create a deploy SSH key (no passphrase) used only for this host
+2. Add the public key to ICDSoft SSH Access / authorized_keys
+3. In the GitHub repo → Settings → Secrets and variables → Actions:
+     ICDSOFT_SSH_KEY   = private key PEM
+     ICDSOFT_HOST      = s414.sureserver.com
+     ICDSOFT_USER      = chuckneedham
+4. Push to main — .github/workflows/deploy.yml pushes to the bare repo,
+   which checks out into /home/chuckneedham/www
+
+Cursor can publish by running .\deploy.ps1 when you ask (use -GitHubOnly
+until the server hook is confirmed).
+
+--------------------------------------------------------------------
+Docs
+--------------------------------------------------------------------
+ICDSoft git deploy KB:
+https://www.icdsoft.com/en/kb/view/1905_using_git_to_push_changes_to_your_live_website

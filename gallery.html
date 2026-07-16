@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gallery — Chuck Needham</title>
+  <meta name="description" content="Photo gallery by Chuck Needham.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Schibsted+Grotesk:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="page-inner">
+
+  <nav class="site-nav site-nav--solid" aria-label="Main">
+    <a class="site-nav__brand" href="index.html">Chuck Needham</a>
+    <div class="site-nav__links">
+      <a href="about.html">About</a>
+      <a href="gallery.html" aria-current="page">Gallery</a>
+    </div>
+  </nav>
+
+  <header class="page-hero">
+    <p class="page-hero__eyebrow">Gallery</p>
+    <h1>Photographs</h1>
+    <p class="page-hero__lede">Albums of places and moments. Click a photo to view it larger.</p>
+  </header>
+
+  <main class="wrap wrap--wide">
+    <div id="albumFilters" class="album-filters" hidden></div>
+    <p id="galleryStatus" class="gallery-status" role="status">Loading gallery…</p>
+    <div id="galleryGrid" class="gallery-grid" hidden></div>
+  </main>
+
+  <div id="lightbox" class="lightbox" hidden>
+    <button type="button" class="lightbox__close" id="lightboxClose" aria-label="Close">&times;</button>
+    <button type="button" class="lightbox__nav lightbox__nav--prev" id="lightboxPrev" aria-label="Previous">‹</button>
+    <figure class="lightbox__figure">
+      <img id="lightboxImg" alt="">
+      <figcaption id="lightboxCaption"></figcaption>
+    </figure>
+    <button type="button" class="lightbox__nav lightbox__nav--next" id="lightboxNext" aria-label="Next">›</button>
+  </div>
+
+  <footer class="site-footer">
+    <p>&copy; <span id="year"></span> Chuck Needham</p>
+    <p><a href="index.html">Home</a> · <a href="about.html">About</a></p>
+  </footer>
+
+  <script src="gallery.js"></script>
+  <script>
+    document.getElementById("year").textContent = new Date().getFullYear();
+  </script>
+</body>
+</html>

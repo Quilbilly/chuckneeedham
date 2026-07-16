@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chuck Needham</title>
+  <meta name="description" content="Personal site of Chuck Needham — photos, notes, and a little about me.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Schibsted+Grotesk:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="page-home">
+
+  <nav class="site-nav" aria-label="Main">
+    <a class="site-nav__brand" href="index.html" aria-current="page">Chuck Needham</a>
+    <div class="site-nav__links">
+      <a href="about.html">About</a>
+      <a href="gallery.html">Gallery</a>
+    </div>
+  </nav>
+
+  <header class="hero">
+    <div class="hero__plane" aria-hidden="true">
+      <div class="hero__grain"></div>
+      <div class="hero__wash"></div>
+    </div>
+    <div class="hero__copy">
+      <p class="hero__brand">Chuck Needham</p>
+      <h1 class="hero__headline">Photos, places, and the long view.</h1>
+      <p class="hero__lede">A personal site for pictures that matter and a few words about who I am.</p>
+      <div class="hero__actions">
+        <a class="btn btn--solid" href="gallery.html">Browse the gallery</a>
+        <a class="btn btn--ghost" href="about.html">About me</a>
+      </div>
+    </div>
+  </header>
+
+  <footer class="site-footer">
+    <p>&copy; <span id="year"></span> Chuck Needham</p>
+    <p><a href="about.html">About</a> · <a href="gallery.html">Gallery</a></p>
+  </footer>
+
+  <script>
+    document.getElementById("year").textContent = new Date().getFullYear();
+  </script>
+</body>
+</html>

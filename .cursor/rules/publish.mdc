@@ -1,0 +1,18 @@
+---
+description: How to publish this site to GitHub and ICDSoft
+alwaysApply: true
+---
+
+# Publish this site
+
+Live domain: https://chuckneedham.com  
+ICDSoft document root: `/home/chuckneedham/www`  
+Bare deploy repo: `~/private/chuckneeedham-deploy.git`
+
+When the user asks to publish, deploy, or push the site live:
+
+1. Prefer `.\deploy.ps1 -GitHubOnly` until the user confirms the ICDSoft one-time SSH setup in `DEPLOY-ICDSOFT.txt` is done.
+2. After server setup is confirmed, `.\deploy.ps1` commits (unless `-SkipCommit`), pushes GitHub `origin`, then pushes `icdsoft` so the post-receive hook updates `/home/chuckneedham/www`.
+3. If only GitHub is needed: `git push origin main`.
+4. Never push to `icdsoft` if the bare repo / post-receive hook is not set up yet.
+5. Do not force-push to GitHub `main` unless the user explicitly asks.

@@ -1,0 +1,14 @@
+# OS / editor
+Thumbs.db
+Desktop.ini
+.DS_Store
+*.tmp
+*.log
+
+# Local secrets / host config (never commit)
+*.local.php
+.env
+.env.*
+
+# Large local originals (publish web-sized copies under gallery/albums/)
+gallery/_originals/
