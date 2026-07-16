@@ -86,6 +86,7 @@ NOTE: The work tree is /home/chuckneedham/www/www (chuckneedham.com
 document root). A push will replace files in that directory with this
 repo's tree, excluding .cursor and .github (sparse-checkout + cleanup).
 Sibling folders under /www (suzie, wiki, etc.) are not touched.
+gallery/ and hero_images/ are included by the `*` pattern and deploy.
 
 --------------------------------------------------------------------
 ON YOUR PC (remotes)

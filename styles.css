@@ -115,36 +115,67 @@ a:hover {
   inset: 0;
   z-index: 0;
   background:
+    radial-gradient(ellipse 70% 55% at 70% 20%, rgba(196, 122, 58, 0.22) 0%, transparent 55%),
+    radial-gradient(ellipse 50% 40% at 15% 80%, rgba(90, 130, 140, 0.18) 0%, transparent 50%),
     linear-gradient(145deg, #2c3a44 0%, #1a2228 42%, #12181c 100%);
 }
 
-.hero__wash {
+.hero__media {
   position: absolute;
   inset: 0;
+  background: #12181c;
+}
+
+.hero__media:not(.is-ready) {
+  display: none;
+}
+
+.hero__slide {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center center;
+  opacity: 0;
+  transition: opacity 1.4s ease;
+}
+
+.hero__slide.is-active {
+  opacity: 1;
+  z-index: 1;
+}
+
+.hero__veil {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
   background:
-    radial-gradient(ellipse 70% 55% at 70% 20%, rgba(196, 122, 58, 0.28) 0%, transparent 55%),
-    radial-gradient(ellipse 50% 40% at 15% 80%, rgba(90, 130, 140, 0.22) 0%, transparent 50%);
-  animation: wash-drift 18s ease-in-out infinite alternate;
+    linear-gradient(
+      180deg,
+      rgba(18, 24, 28, 0.45) 0%,
+      rgba(18, 24, 28, 0.2) 32%,
+      rgba(18, 24, 28, 0.55) 62%,
+      rgba(18, 24, 28, 0.88) 100%
+    ),
+    radial-gradient(ellipse 80% 50% at 20% 90%, rgba(26, 34, 40, 0.55) 0%, transparent 60%);
 }
 
 .hero__grain {
   position: absolute;
   inset: 0;
-  opacity: 0.35;
+  z-index: 3;
+  opacity: 0.28;
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.55'/%3E%3C/svg%3E");
   background-size: 180px 180px;
   mix-blend-mode: overlay;
   pointer-events: none;
 }
 
-@keyframes wash-drift {
-  from { transform: scale(1) translate(0, 0); }
-  to { transform: scale(1.08) translate(-2%, 1%); }
-}
-
 .hero__copy {
   position: relative;
-  z-index: 1;
+  z-index: 4;
   max-width: 36rem;
   animation: rise-in 0.9s ease-out both;
 }
@@ -510,12 +541,15 @@ a:hover {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .hero__wash,
   .hero__copy,
   .hero__brand,
   .hero__actions,
   .gallery-card {
     animation: none;
+  }
+
+  .hero__slide {
+    transition: none;
   }
 
   .gallery-card img {
