@@ -1,7 +1,7 @@
 # Publish to GitHub (origin) and optionally ICDSoft (icdsoft).
 #
 # Live site: https://chuckneedham.com
-# ICDSoft work tree (after server hook setup): /home/chuckneedham/www
+# ICDSoft work tree (after server hook setup): /home/chuckneedham/www/www
 # Bare repo: ~/private/chuckneeedham-deploy.git
 #
 # Usage: .\deploy.ps1
@@ -48,6 +48,6 @@ if ($GitHubOnly) {
   exit 0
 }
 
-Write-Host "Pushing to ICDSoft (checks out into /home/chuckneedham/www)..."
+Write-Host "Pushing to ICDSoft (checks out into /home/chuckneedham/www/www)..."
 git push icdsoft HEAD:main
 Write-Host "Published to GitHub and ICDSoft."

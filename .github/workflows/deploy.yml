@@ -1,5 +1,5 @@
 # Deploys to ICDSoft bare repo; post-receive checks out into
-# /home/chuckneedham/www (https://chuckneedham.com document root).
+# /home/chuckneedham/www/www (https://chuckneedham.com document root).
 # Requires server one-time setup in DEPLOY-ICDSOFT.txt first.
 name: Deploy to ICDSoft
 
@@ -44,9 +44,9 @@ jobs:
           ICDSOFT_SSH_KEY: ${{ secrets.ICDSOFT_SSH_KEY }}
         run: |
           if [ -z "$ICDSOFT_SSH_KEY" ]; then
-            echo "No deploy key — GitHub copy only."
+            echo "No deploy key - GitHub copy only."
             exit 0
           fi
-          # Bare repo post-receive → GIT_WORK_TREE=/home/chuckneedham/www
+          # Bare repo post-receive -> GIT_WORK_TREE=/home/chuckneedham/www/www
           git remote add icdsoft icdsoft:/home/chuckneedham/private/chuckneeedham-deploy.git
           git push icdsoft HEAD:main --force

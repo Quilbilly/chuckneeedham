@@ -6,7 +6,7 @@ Same host pattern as suzieq. This site is the apex domain root.
 GitHub:  https://github.com/Quilbilly/chuckneeedham
 Panel:   https://panel.s414.sureserver.com/
 SSH:     chuckneedham@s414.sureserver.com
-Live:    /home/chuckneedham/www  → https://chuckneedham.com
+Live:    /home/chuckneedham/www/www  → https://chuckneedham.com
 
 IMPORTANT
 ---------
@@ -15,6 +15,24 @@ is done. Pushing early will fail or leave the site half-deployed.
 
 Control Panel "Git" storage under /private/git.repostorage does NOT
 update the live site. Use the bare repo + post-receive hook instead.
+
+--------------------------------------------------------------------
+WWW PERMISSIONS (REQUIRED)
+--------------------------------------------------------------------
+/home/chuckneedham/www (parent) is often NOT writable by the account
+user (system folder, e.g. drwxr-xr-t root:chuckneedham).
+
+The apex site document root IS writable:
+  /home/chuckneedham/www/www  (group chuckneedham, e.g. drwxrwxr-x)
+
+Expected:
+  drwxr-xr-t  root chuckneedham  ... /home/chuckneedham/www
+  drwxrwxr-x  root chuckneedham  ... /home/chuckneedham/www/www
+  drwxrwxr-x  root chuckneedham  ... /home/chuckneedham/www/suzie
+
+Do NOT set GIT_WORK_TREE to /home/chuckneedham/www — checkout will fail
+with "Permission denied". Use /home/chuckneedham/www/www instead.
+Do not push to icdsoft until www/www is writable by group chuckneedham.
 
 --------------------------------------------------------------------
 ONE-TIME SETUP ON THE SERVER (SSH) — REQUIRED BEFORE LIVE PUBLISH
@@ -30,7 +48,32 @@ git --bare init --initial-branch=main
 
 cat > hooks/post-receive <<'EOF'
 #!/bin/sh
-GIT_WORK_TREE=/home/chuckneedham/www git checkout -f
+set -e
+TARGET=/home/chuckneedham/www/www
+export GIT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+export GIT_WORK_TREE="$TARGET"
+
+git config core.sparseCheckout true
+git config core.sparseCheckoutCone false
+
+mkdir -p "$GIT_DIR/info"
+cat > "$GIT_DIR/info/sparse-checkout" <<'PATTERNS'
+*
+!/.cursor/
+!/.github/
+!/deploy.ps1
+!/DEPLOY-ICDSOFT.txt
+!/.gitignore
+!/README.md
+!/README.txt
+PATTERNS
+
+git checkout -f
+
+# Remove leftovers from earlier full checkouts (sparse may not delete them)
+rm -rf "$TARGET/.cursor" "$TARGET/.github"
+rm -f "$TARGET/deploy.ps1" "$TARGET/DEPLOY-ICDSOFT.txt" "$TARGET/.gitignore"
+rm -f "$TARGET/README.md" "$TARGET/README.txt"
 EOF
 
 chmod +x hooks/post-receive
@@ -39,9 +82,10 @@ Confirm:
   ls -l hooks/post-receive
   cat hooks/post-receive
 
-NOTE: The work tree is /home/chuckneedham/www (chuckneedham.com document
-root). A push will replace files in that directory with this repo's tree.
-Back up anything already in /www that you need to keep.
+NOTE: The work tree is /home/chuckneedham/www/www (chuckneedham.com
+document root). A push will replace files in that directory with this
+repo's tree, excluding .cursor and .github (sparse-checkout + cleanup).
+Sibling folders under /www (suzie, wiki, etc.) are not touched.
 
 --------------------------------------------------------------------
 ON YOUR PC (remotes)
@@ -56,7 +100,7 @@ GitHub only (safe anytime):
   git push -u origin main
   # or:  .\deploy.ps1 -GitHubOnly
 
-Live host (ONLY after one-time SSH setup above):
+Live host (ONLY after one-time SSH setup above AND www/www is writable):
 
   git push icdsoft main
   # or:  .\deploy.ps1
@@ -73,10 +117,10 @@ After the bare repo + SSH key are ready:
      ICDSOFT_HOST      = s414.sureserver.com
      ICDSOFT_USER      = chuckneedham
 4. Push to main — .github/workflows/deploy.yml pushes to the bare repo,
-   which checks out into /home/chuckneedham/www
+   which checks out into /home/chuckneedham/www/www
 
 Cursor can publish by running .\deploy.ps1 when you ask (use -GitHubOnly
-until the server hook is confirmed).
+until the server hook is confirmed and www/www is writable).
 
 --------------------------------------------------------------------
 Docs
