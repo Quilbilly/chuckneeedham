@@ -1,0 +1,494 @@
+<?php
+/**
+ * Shared gallery helpers — albums on disk, captions in album.json, admin auth private.
+ */
+
+function gallery_albums_root(): string
+{
+    return __DIR__ . '/gallery/albums';
+}
+
+function gallery_allowed_ext(): array
+{
+    // Web formats only — convert TIFF/RAW offline; keep originals under gallery/_originals/
+    return ['jpg', 'jpeg', 'png', 'webp', 'gif'];
+}
+
+function gallery_private_dir(): string
+{
+    $serverParent = '/home/chuckneedham/private';
+    $server = $serverParent . '/chuck-gallery';
+    if (is_dir($serverParent)) {
+        if (!is_dir($server)) {
+            @mkdir($server, 0700, true);
+        }
+        if (is_dir($server)) {
+            return $server;
+        }
+    }
+    $local = __DIR__ . '/private-data';
+    if (!is_dir($local)) {
+        @mkdir($local, 0700, true);
+    }
+    return $local;
+}
+
+function gallery_config_path(): string
+{
+    return gallery_private_dir() . '/config.php';
+}
+
+function gallery_config(): array
+{
+    static $config = null;
+    if ($config !== null) {
+        return $config;
+    }
+    $defaults = [
+        'admin_password_hash' => '',
+        'site_url' => 'https://chuckneedham.com',
+    ];
+    $path = gallery_config_path();
+    $loaded = is_file($path) ? (include $path) : [];
+    if (!is_array($loaded)) {
+        $loaded = [];
+    }
+    $config = array_merge($defaults, $loaded);
+    return $config;
+}
+
+function gallery_write_config(array $config): void
+{
+    $path = gallery_config_path();
+    $dir = dirname($path);
+    if (!is_dir($dir)) {
+        mkdir($dir, 0700, true);
+    }
+    $export = var_export([
+        'admin_password_hash' => (string) ($config['admin_password_hash'] ?? ''),
+        'site_url' => (string) ($config['site_url'] ?? 'https://chuckneedham.com'),
+    ], true);
+    $php = "<?php\n// Auto-written by gallery-admin.php — keep outside the public web tree.\nreturn " . $export . ";\n";
+    $tmp = $path . '.tmp';
+    if (file_put_contents($tmp, $php, LOCK_EX) === false) {
+        throw new RuntimeException('Could not write config.');
+    }
+    if (!rename($tmp, $path)) {
+        throw new RuntimeException('Could not save config.');
+    }
+    @chmod($path, 0600);
+}
+
+function gallery_needs_setup(): bool
+{
+    $config = gallery_config();
+    return trim((string) ($config['admin_password_hash'] ?? '')) === '';
+}
+
+function gallery_admin_logged_in(): bool
+{
+    return !empty($_SESSION['gallery_admin']);
+}
+
+function gallery_csrf_token(): string
+{
+    if (empty($_SESSION['gallery_csrf'])) {
+        $_SESSION['gallery_csrf'] = bin2hex(random_bytes(16));
+    }
+    return $_SESSION['gallery_csrf'];
+}
+
+function gallery_csrf_ok(?string $token): bool
+{
+    return is_string($token)
+        && !empty($_SESSION['gallery_csrf'])
+        && hash_equals($_SESSION['gallery_csrf'], $token);
+}
+
+function gallery_clean_text(string $text, int $max = 500): string
+{
+    $text = trim(preg_replace('/\s+/u', ' ', $text) ?? '');
+    if (function_exists('mb_substr')) {
+        return mb_substr($text, 0, $max);
+    }
+    return substr($text, 0, $max);
+}
+
+function gallery_pretify_slug(string $slug): string
+{
+    return ucwords(str_replace(['-', '_'], ' ', $slug));
+}
+
+function gallery_safe_album_slug(string $slug): ?string
+{
+    $slug = trim($slug);
+    if ($slug === '' || $slug === '.' || $slug === '..' || strpos($slug, '/') !== false || strpos($slug, '\\') !== false) {
+        return null;
+    }
+    if (!preg_match('/^[A-Za-z0-9][A-Za-z0-9._-]{0,80}$/', $slug)) {
+        return null;
+    }
+    $dir = gallery_albums_root() . '/' . $slug;
+    if (!is_dir($dir)) {
+        return null;
+    }
+    return $slug;
+}
+
+function gallery_safe_filename(string $file): ?string
+{
+    $file = basename($file);
+    if ($file === '' || $file === '.' || $file === '..' || $file === 'album.json') {
+        return null;
+    }
+    $ext = strtolower(pathinfo($file, PATHINFO_EXTENSION));
+    if (!in_array($ext, gallery_allowed_ext(), true)) {
+        return null;
+    }
+    return $file;
+}
+
+function gallery_load_album_meta(string $slug): array
+{
+    $meta = [
+        'slug' => $slug,
+        'title' => gallery_pretify_slug($slug),
+        'description' => '',
+        'captions' => [],
+    ];
+    $metaFile = gallery_albums_root() . '/' . $slug . '/album.json';
+    if (is_file($metaFile)) {
+        $decoded = json_decode((string) file_get_contents($metaFile), true);
+        if (is_array($decoded)) {
+            if (!empty($decoded['title'])) {
+                $meta['title'] = (string) $decoded['title'];
+            }
+            if (isset($decoded['description'])) {
+                $meta['description'] = (string) $decoded['description'];
+            }
+            if (!empty($decoded['captions']) && is_array($decoded['captions'])) {
+                $meta['captions'] = $decoded['captions'];
+            }
+        }
+    }
+
+    // Admin edits live outside the web tree so deploys do not wipe captions.
+    $privateFile = gallery_private_dir() . '/albums/' . $slug . '.json';
+    if (is_file($privateFile)) {
+        $decoded = json_decode((string) file_get_contents($privateFile), true);
+        if (is_array($decoded)) {
+            if (!empty($decoded['title'])) {
+                $meta['title'] = (string) $decoded['title'];
+            }
+            if (isset($decoded['description'])) {
+                $meta['description'] = (string) $decoded['description'];
+            }
+            if (isset($decoded['captions']) && is_array($decoded['captions'])) {
+                $meta['captions'] = $decoded['captions'];
+            }
+        }
+    }
+
+    return $meta;
+}
+
+function gallery_save_album_meta(string $slug, array $meta): void
+{
+    $dir = gallery_albums_root() . '/' . $slug;
+    if (!is_dir($dir)) {
+        throw new RuntimeException('Album not found.');
+    }
+    $payload = [
+        'title' => (string) ($meta['title'] ?? gallery_pretify_slug($slug)),
+        'description' => (string) ($meta['description'] ?? ''),
+        'captions' => is_array($meta['captions'] ?? null) ? $meta['captions'] : [],
+    ];
+    $json = json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    if ($json === false) {
+        throw new RuntimeException('Could not encode album metadata.');
+    }
+
+    $privateDir = gallery_private_dir() . '/albums';
+    if (!is_dir($privateDir)) {
+        mkdir($privateDir, 0700, true);
+    }
+    $path = $privateDir . '/' . $slug . '.json';
+    $tmp = $path . '.tmp';
+    if (file_put_contents($tmp, $json . "\n", LOCK_EX) === false) {
+        throw new RuntimeException('Could not write album metadata.');
+    }
+    if (!rename($tmp, $path)) {
+        throw new RuntimeException('Could not save album metadata.');
+    }
+    @chmod($path, 0600);
+
+    // Keep a copy in the album folder for local/dev convenience (optional).
+    $publicPath = $dir . '/album.json';
+    $publicTmp = $publicPath . '.tmp';
+    if (@file_put_contents($publicTmp, $json . "\n", LOCK_EX) !== false) {
+        @rename($publicTmp, $publicPath);
+    }
+}
+
+function gallery_list_album_files(string $slug): array
+{
+    $dir = gallery_albums_root() . '/' . $slug;
+    $files = [];
+    $scan = scandir($dir);
+    if ($scan === false) {
+        return $files;
+    }
+    natcasesort($scan);
+    foreach ($scan as $file) {
+        $safe = gallery_safe_filename($file);
+        if ($safe === null) {
+            continue;
+        }
+        $files[] = $safe;
+    }
+    return array_values($files);
+}
+
+function gallery_photo_src(string $slug, string $file): string
+{
+    return 'gallery/albums/' . rawurlencode($slug) . '/' . str_replace('%2F', '/', rawurlencode($file));
+}
+
+function gallery_caption_for(array $meta, string $file): string
+{
+    $captions = $meta['captions'] ?? [];
+    if (isset($captions[$file])) {
+        return (string) $captions[$file];
+    }
+    $base = pathinfo($file, PATHINFO_FILENAME);
+    if (isset($captions[$base])) {
+        return (string) $captions[$base];
+    }
+    return '';
+}
+
+function gallery_catalog(): array
+{
+    $root = gallery_albums_root();
+    $albums = [];
+    $photos = [];
+    if (!is_dir($root)) {
+        return ['albums' => [], 'photos' => []];
+    }
+    $dirs = scandir($root);
+    if ($dirs === false) {
+        return ['albums' => [], 'photos' => [], 'error' => 'Unable to read albums'];
+    }
+    natcasesort($dirs);
+    foreach ($dirs as $slug) {
+        if ($slug === '.' || $slug === '..') {
+            continue;
+        }
+        if (!is_dir($root . '/' . $slug)) {
+            continue;
+        }
+        $meta = gallery_load_album_meta($slug);
+        $files = gallery_list_album_files($slug);
+        if (!$files) {
+            continue;
+        }
+        $cover = gallery_photo_src($slug, $files[0]);
+        foreach ($files as $file) {
+            $caption = gallery_caption_for($meta, $file);
+            $id = $slug . '/' . pathinfo($file, PATHINFO_FILENAME);
+            $src = gallery_photo_src($slug, $file);
+            $photos[] = [
+                'id' => $id,
+                'album' => $slug,
+                'file' => $file,
+                'src' => $src,
+                'caption' => $caption,
+                'alt' => $caption !== '' ? $caption : ($meta['title'] . ' — ' . $file),
+                // Info always available (file size / dimensions); EXIF added when present
+                'has_meta' => true,
+            ];
+        }
+        $albums[] = [
+            'slug' => $slug,
+            'title' => $meta['title'],
+            'description' => $meta['description'],
+            'count' => count($files),
+            'cover' => $cover,
+        ];
+    }
+    return [
+        'albums' => array_values($albums),
+        'photos' => $photos,
+    ];
+}
+
+function gallery_file_may_have_exif(string $path): bool
+{
+    $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+    return in_array($ext, ['jpg', 'jpeg', 'tiff', 'tif'], true) && is_file($path);
+}
+
+/**
+ * Extract a safe, human-readable subset of EXIF / file metadata.
+ */
+function gallery_read_photo_meta(string $slug, string $file): array
+{
+    $slug = gallery_safe_album_slug($slug);
+    $file = gallery_safe_filename($file);
+    if ($slug === null || $file === null) {
+        return ['ok' => false, 'error' => 'Not found'];
+    }
+    $path = gallery_albums_root() . '/' . $slug . '/' . $file;
+    if (!is_file($path)) {
+        return ['ok' => false, 'error' => 'Not found'];
+    }
+
+    $meta = gallery_load_album_meta($slug);
+    $out = [
+        'ok' => true,
+        'file' => $file,
+        'album' => $slug,
+        'album_title' => $meta['title'],
+        'caption' => gallery_caption_for($meta, $file),
+        'fields' => [],
+    ];
+
+    $size = @getimagesize($path);
+    if (is_array($size) && !empty($size[0]) && !empty($size[1])) {
+        $out['fields'][] = ['label' => 'Dimensions', 'value' => $size[0] . ' × ' . $size[1]];
+    }
+    $bytes = @filesize($path);
+    if ($bytes !== false) {
+        $out['fields'][] = ['label' => 'File size', 'value' => gallery_format_bytes((int) $bytes)];
+    }
+    $mtime = @filemtime($path);
+    if ($mtime) {
+        $out['fields'][] = ['label' => 'File date', 'value' => gmdate('Y-m-d H:i', $mtime) . ' UTC'];
+    }
+
+    if (function_exists('exif_read_data') && gallery_file_may_have_exif($path)) {
+        $exif = @exif_read_data($path, null, true);
+        if (is_array($exif)) {
+            $map = [
+                ['IFD0', 'Make', 'Camera make'],
+                ['IFD0', 'Model', 'Camera model'],
+                ['EXIF', 'DateTimeOriginal', 'Taken'],
+                ['EXIF', 'ExposureTime', 'Exposure'],
+                ['EXIF', 'FNumber', 'Aperture'],
+                ['EXIF', 'ISOSpeedRatings', 'ISO'],
+                ['EXIF', 'FocalLength', 'Focal length'],
+                ['EXIF', 'LensModel', 'Lens'],
+                ['IFD0', 'Software', 'Software'],
+                ['IFD0', 'Artist', 'Artist'],
+                ['IFD0', 'Copyright', 'Copyright'],
+                ['COMPUTED', 'UserComment', 'Comment'],
+            ];
+            foreach ($map as $row) {
+                [$section, $key, $label] = $row;
+                if (!isset($exif[$section][$key])) {
+                    continue;
+                }
+                $raw = $exif[$section][$key];
+                $value = gallery_format_exif_value($key, $raw);
+                if ($value !== '') {
+                    $out['fields'][] = ['label' => $label, 'value' => $value];
+                }
+            }
+
+            // GPS if present
+            if (!empty($exif['GPS']['GPSLatitude']) && !empty($exif['GPS']['GPSLongitude'])) {
+                $lat = gallery_gps_to_deg($exif['GPS']['GPSLatitude'], $exif['GPS']['GPSLatitudeRef'] ?? 'N');
+                $lon = gallery_gps_to_deg($exif['GPS']['GPSLongitude'], $exif['GPS']['GPSLongitudeRef'] ?? 'E');
+                if ($lat !== null && $lon !== null) {
+                    $out['fields'][] = [
+                        'label' => 'Location',
+                        'value' => sprintf('%.5f, %.5f', $lat, $lon),
+                    ];
+                }
+            }
+        }
+    }
+
+    $out['has_fields'] = count($out['fields']) > 0;
+    return $out;
+}
+
+function gallery_format_bytes(int $bytes): string
+{
+    if ($bytes < 1024) {
+        return $bytes . ' B';
+    }
+    if ($bytes < 1048576) {
+        return round($bytes / 1024, 1) . ' KB';
+    }
+    return round($bytes / 1048576, 1) . ' MB';
+}
+
+function gallery_format_exif_value(string $key, $raw): string
+{
+    if (is_array($raw)) {
+        if ($key === 'ISOSpeedRatings' && isset($raw[0])) {
+            return (string) $raw[0];
+        }
+        $raw = implode(' ', array_map('strval', $raw));
+    }
+    $raw = trim((string) $raw);
+    if ($raw === '') {
+        return '';
+    }
+    if ($key === 'FNumber' && is_numeric($raw)) {
+        return 'ƒ/' . rtrim(rtrim(number_format((float) $raw, 1, '.', ''), '0'), '.');
+    }
+    if ($key === 'FocalLength' && preg_match('/^(\d+)\/(\d+)$/', $raw, $m) && (int) $m[2] > 0) {
+        return round((int) $m[1] / (int) $m[2]) . ' mm';
+    }
+    if ($key === 'ExposureTime') {
+        if (is_numeric($raw) && (float) $raw > 0 && (float) $raw < 1) {
+            return '1/' . round(1 / (float) $raw) . ' s';
+        }
+        if (preg_match('/^(\d+)\/(\d+)$/', $raw, $m) && (int) $m[2] > 0) {
+            $v = (int) $m[1] / (int) $m[2];
+            if ($v > 0 && $v < 1) {
+                return '1/' . round(1 / $v) . ' s';
+            }
+            return rtrim(rtrim(number_format($v, 2, '.', ''), '0'), '.') . ' s';
+        }
+    }
+    if (in_array($key, ['DateTimeOriginal', 'DateTime'], true) && preg_match('/^\d{4}:\d{2}:\d{2}/', $raw)) {
+        return str_replace(':', '-', substr($raw, 0, 10)) . substr($raw, 10);
+    }
+    // Strip control chars
+    $raw = preg_replace('/[\x00-\x1F\x7F]/', '', $raw) ?? $raw;
+    if (function_exists('mb_substr')) {
+        return mb_substr($raw, 0, 200);
+    }
+    return substr($raw, 0, 200);
+}
+
+function gallery_gps_to_deg($coord, string $ref): ?float
+{
+    if (!is_array($coord) || count($coord) < 3) {
+        return null;
+    }
+    $parts = [];
+    foreach (array_slice($coord, 0, 3) as $part) {
+        if (is_string($part) && preg_match('/^(\d+)\/(\d+)$/', $part, $m) && (int) $m[2] > 0) {
+            $parts[] = (int) $m[1] / (int) $m[2];
+        } elseif (is_numeric($part)) {
+            $parts[] = (float) $part;
+        } else {
+            return null;
+        }
+    }
+    $deg = $parts[0] + ($parts[1] / 60) + ($parts[2] / 3600);
+    $ref = strtoupper($ref);
+    if ($ref === 'S' || $ref === 'W') {
+        $deg *= -1;
+    }
+    return $deg;
+}
+
+function gallery_h(string $s): string
+{
+    return htmlspecialchars($s, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+}

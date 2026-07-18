@@ -9,6 +9,7 @@ Desktop.ini
 *.local.php
 .env
 .env.*
+private-data/
 
 # Large local originals (publish web-sized copies under gallery/albums/)
 gallery/_originals/

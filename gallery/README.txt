@@ -1,49 +1,34 @@
-Photo gallery (file-based)
-==========================
+Photo gallery
+=============
 
-Decision: photos live as files on disk, not in MySQL.
+Albums = folders under gallery/albums/<album-slug>/
+Each album can have album.json (title, description, captions).
 
-Why:
-  - Extensive galleries are mostly binary data; MySQL is a poor fit for image blobs
-  - The web server serves JPG/WebP efficiently with caching
-  - Deploys stay simple (same git push flow as suzieq)
-  - Albums are just folders — easy to add hundreds of photos
+Public pages
+------------
+  gallery.html          album cards → photo grid → lightbox
+  gallery-api.php       JSON catalog
+  gallery-meta.php      EXIF / file info for the Info button
 
-Layout
-------
-  gallery/albums/<album-slug>/
-    album.json     optional title, description, per-file captions
-    photo-01.jpg
-    photo-02.webp
-    ...
+Admin (captions)
+----------------
+  https://chuckneedham.com/gallery-admin.php
 
-Supported extensions: jpg, jpeg, png, webp, gif
+  First visit: create a password (stored hashed in
+  /home/chuckneedham/private/chuck-gallery/config.php — outside the web root).
 
-album.json example
-------------------
-{
-  "title": "Pacific Northwest",
-  "description": "Trips around Washington and Oregon.",
-  "captions": {
-    "rainier-sunrise.jpg": "Sunrise on Mount Rainier",
-    "ferry-crossing.jpg": "Crossing to Bainbridge"
-  }
-}
-
-How the site loads them
------------------------
-  gallery-api.php scans gallery/albums/ and returns JSON.
-  gallery.html + gallery.js render the grid and lightbox.
+  Captions / album titles saved by admin also live under
+  /home/chuckneedham/private/chuck-gallery/albums/<slug>.json
+  so a normal site deploy does not wipe them.
 
 Adding photos
 -------------
-1. Create a folder under gallery/albums/ (e.g. travel-2024)
-2. Drop image files in
-3. Optionally add album.json
-4. Commit, then run .\deploy.ps1 (or push to GitHub — Actions can publish)
+1. Create gallery/albums/my-trip/
+2. Drop jpg / jpeg / png / webp / gif files in
+3. Optionally add album.json, or use gallery-admin.php after deploy
+4. Publish
 
-Tips for large libraries
-------------------------
-  - Prefer WebP or reasonably sized JPEG (long edge ~1600–2400px for web)
-  - Keep originals elsewhere; publish web-sized copies here
-  - GitHub soft-warns around large files; very large binaries may need Git LFS later
+Info button
+-----------
+In the lightbox, Info loads dimensions, file size, and EXIF when present
+(camera, lens, exposure, GPS, etc.).

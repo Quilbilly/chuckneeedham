@@ -327,33 +327,102 @@ a:hover {
 }
 
 /* Gallery */
-.album-filters {
+.album-nav {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-bottom: 1.75rem;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
 }
 
-.album-filters button {
+.album-nav__back {
+  align-self: flex-start;
   font-family: var(--font-body);
-  font-size: 0.75rem;
+  font-size: 0.8rem;
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  padding: 0.45rem 0.85rem;
-  border: 1px solid var(--line);
-  background: transparent;
   color: var(--muted);
+  background: transparent;
+  border: none;
   cursor: pointer;
-  border-radius: 2px;
-  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+  padding: 0;
 }
 
-.album-filters button:hover,
-.album-filters button[aria-pressed="true"] {
+.album-nav__back:hover {
+  color: var(--accent);
+}
+
+.album-nav__desc {
+  color: var(--muted);
+  max-width: 36rem;
+}
+
+.album-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+@media (min-width: 560px) {
+  .album-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 900px) {
+  .album-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.album-card {
+  position: relative;
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: none;
+  border-radius: 2px;
+  overflow: hidden;
+  background: var(--bg-soft);
+  cursor: pointer;
+  text-align: left;
+  color: inherit;
+  animation: card-in 0.55s ease-out both;
+}
+
+.album-card img {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  transition: transform 0.45s ease;
+}
+
+.album-card:hover img {
+  transform: scale(1.03);
+}
+
+.album-card__body {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 2rem 1rem 0.85rem;
+  background: linear-gradient(transparent, rgba(18, 22, 26, 0.9));
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.album-card__title {
+  font-family: var(--font-display);
+  font-size: 1.35rem;
   color: var(--ink);
-  border-color: var(--accent);
-  background: rgba(196, 122, 58, 0.12);
+}
+
+.album-card__count {
+  font-size: 0.8rem;
+  color: var(--muted);
 }
 
 .gallery-status {
@@ -450,17 +519,26 @@ a:hover {
   display: none;
 }
 
-.lightbox__figure {
+.lightbox__stage {
+  position: relative;
   max-width: min(96vw, 1100px);
   max-height: 90vh;
   display: flex;
   flex-direction: column;
   align-items: center;
+  gap: 0.65rem;
+}
+
+.lightbox__figure {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   gap: 0.75rem;
+  max-width: 100%;
 }
 
 .lightbox__figure img {
-  max-height: 80vh;
+  max-height: 72vh;
   width: auto;
   max-width: 100%;
   object-fit: contain;
@@ -470,6 +548,69 @@ a:hover {
   color: var(--muted);
   font-size: 0.9rem;
   text-align: center;
+}
+
+.lightbox__toolbar {
+  display: flex;
+  justify-content: center;
+}
+
+.lightbox__info-btn {
+  font-family: var(--font-body);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 0.45rem 0.95rem;
+  border: 1px solid var(--line);
+  background: rgba(26, 34, 40, 0.85);
+  color: var(--ink);
+  cursor: pointer;
+  border-radius: 2px;
+}
+
+.lightbox__info-btn:hover,
+.lightbox__info-btn[aria-expanded="true"] {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.lightbox__info {
+  width: min(100%, 28rem);
+  max-height: 40vh;
+  overflow: auto;
+  background: rgba(18, 22, 26, 0.95);
+  border: 1px solid var(--line);
+  padding: 1rem 1.1rem;
+  border-radius: 2px;
+}
+
+.lightbox__info-title {
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 400;
+  margin-bottom: 0.65rem;
+}
+
+.lightbox__info-status {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.lightbox__info-list {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.35rem 1rem;
+  font-size: 0.9rem;
+}
+
+.lightbox__info-list dt {
+  color: var(--muted);
+}
+
+.lightbox__info-list dd {
+  color: var(--ink);
+  margin: 0;
 }
 
 .lightbox__close,
@@ -544,7 +685,8 @@ a:hover {
   .hero__copy,
   .hero__brand,
   .hero__actions,
-  .gallery-card {
+  .gallery-card,
+  .album-card {
     animation: none;
   }
 
@@ -552,7 +694,8 @@ a:hover {
     transition: none;
   }
 
-  .gallery-card img {
+  .gallery-card img,
+  .album-card img {
     transition: none;
   }
 }

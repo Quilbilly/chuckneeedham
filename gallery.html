@@ -22,23 +22,37 @@
 
   <header class="page-hero">
     <p class="page-hero__eyebrow">Gallery</p>
-    <h1>Photographs</h1>
-    <p class="page-hero__lede">Albums of places and moments. Click a photo to view it larger.</p>
+    <h1 id="galleryHeading">Photographs</h1>
+    <p class="page-hero__lede" id="galleryLede">Albums of places and moments. Open an album, then click a photo to view it larger.</p>
   </header>
 
   <main class="wrap wrap--wide">
-    <div id="albumFilters" class="album-filters" hidden></div>
+    <div id="albumNav" class="album-nav" hidden>
+      <button type="button" class="album-nav__back" id="albumBack">← All albums</button>
+      <p class="album-nav__desc" id="albumDesc" hidden></p>
+    </div>
     <p id="galleryStatus" class="gallery-status" role="status">Loading gallery…</p>
+    <div id="albumGrid" class="album-grid" hidden></div>
     <div id="galleryGrid" class="gallery-grid" hidden></div>
   </main>
 
   <div id="lightbox" class="lightbox" hidden>
     <button type="button" class="lightbox__close" id="lightboxClose" aria-label="Close">&times;</button>
     <button type="button" class="lightbox__nav lightbox__nav--prev" id="lightboxPrev" aria-label="Previous">‹</button>
-    <figure class="lightbox__figure">
-      <img id="lightboxImg" alt="">
-      <figcaption id="lightboxCaption"></figcaption>
-    </figure>
+    <div class="lightbox__stage">
+      <figure class="lightbox__figure">
+        <img id="lightboxImg" alt="">
+        <figcaption id="lightboxCaption"></figcaption>
+      </figure>
+      <div class="lightbox__toolbar">
+        <button type="button" class="lightbox__info-btn" id="lightboxInfo" hidden>Info</button>
+      </div>
+      <aside id="lightboxInfoPanel" class="lightbox__info" hidden>
+        <h2 class="lightbox__info-title">Photo info</h2>
+        <p id="lightboxInfoStatus" class="lightbox__info-status" hidden></p>
+        <dl id="lightboxInfoList" class="lightbox__info-list"></dl>
+      </aside>
+    </div>
     <button type="button" class="lightbox__nav lightbox__nav--next" id="lightboxNext" aria-label="Next">›</button>
   </div>
 
