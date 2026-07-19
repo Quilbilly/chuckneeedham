@@ -330,7 +330,7 @@ function gallery_file_may_have_exif(string $path): bool
 }
 
 /**
- * Extract a safe, human-readable subset of EXIF / file metadata.
+ * Extract readable photo metadata: file info + essentially all useful EXIF.
  */
 function gallery_read_photo_meta(string $slug, string $file): array
 {
@@ -354,64 +354,211 @@ function gallery_read_photo_meta(string $slug, string $file): array
         'fields' => [],
     ];
 
-    $size = @getimagesize($path);
+    $seen = [];
+    $add = static function (array &$fields, array &$seen, string $label, string $value) {
+        $value = trim($value);
+        if ($value === '') {
+            return;
+        }
+        $key = strtolower($label . '|' . $value);
+        if (isset($seen[$key])) {
+            return;
+        }
+        $seen[$key] = true;
+        $fields[] = ['label' => $label, 'value' => $value];
+    };
+
+    $size = @getimagesize($path, $info);
     if (is_array($size) && !empty($size[0]) && !empty($size[1])) {
-        $out['fields'][] = ['label' => 'Dimensions', 'value' => $size[0] . ' × ' . $size[1]];
+        $add($out['fields'], $seen, 'Dimensions', $size[0] . ' × ' . $size[1]);
     }
     $bytes = @filesize($path);
     if ($bytes !== false) {
-        $out['fields'][] = ['label' => 'File size', 'value' => gallery_format_bytes((int) $bytes)];
+        $add($out['fields'], $seen, 'File size', gallery_format_bytes((int) $bytes));
     }
     $mtime = @filemtime($path);
     if ($mtime) {
-        $out['fields'][] = ['label' => 'File date', 'value' => gmdate('Y-m-d H:i', $mtime) . ' UTC'];
+        $add($out['fields'], $seen, 'File date', gmdate('Y-m-d H:i', $mtime) . ' UTC');
     }
+
+    // Preferred human labels for common tags (shown first when present)
+    $preferred = [
+        'Make' => 'Camera make',
+        'Model' => 'Camera model',
+        'DateTimeOriginal' => 'Taken',
+        'DateTimeDigitized' => 'Digitized',
+        'DateTime' => 'Modified (EXIF)',
+        'ExposureTime' => 'Exposure',
+        'FNumber' => 'Aperture',
+        'ISOSpeedRatings' => 'ISO',
+        'PhotographicSensitivity' => 'ISO',
+        'FocalLength' => 'Focal length',
+        'FocalLengthIn35mmFilm' => 'Focal length (35mm eq.)',
+        'LensModel' => 'Lens',
+        'LensMake' => 'Lens make',
+        'LensSpecification' => 'Lens specification',
+        'UndefinedTag:0xA434' => 'Lens', // common LensModel tag alias in some PHP builds
+        'ExposureProgram' => 'Exposure program',
+        'MeteringMode' => 'Metering',
+        'Flash' => 'Flash',
+        'WhiteBalance' => 'White balance',
+        'ExposureBiasValue' => 'Exposure bias',
+        'ExposureMode' => 'Exposure mode',
+        'SceneCaptureType' => 'Scene',
+        'Sharpness' => 'Sharpness',
+        'Contrast' => 'Contrast',
+        'Saturation' => 'Saturation',
+        'DigitalZoomRatio' => 'Digital zoom',
+        'Software' => 'Software',
+        'Artist' => 'Artist',
+        'Copyright' => 'Copyright',
+        'ImageDescription' => 'Description',
+        'UserComment' => 'Comment',
+        'Orientation' => 'Orientation',
+        'XResolution' => 'X resolution',
+        'YResolution' => 'Y resolution',
+        'ResolutionUnit' => 'Resolution unit',
+        'ColorSpace' => 'Color space',
+        'ExifImageWidth' => 'EXIF width',
+        'ExifImageLength' => 'EXIF height',
+        'BrightnessValue' => 'Brightness',
+        'MaxApertureValue' => 'Max aperture',
+        'SubjectDistance' => 'Subject distance',
+        'LightSource' => 'Light source',
+        'SensingMethod' => 'Sensor',
+        'FileSource' => 'File source',
+        'SceneType' => 'Scene type',
+        'CustomRendered' => 'Custom rendered',
+        'GainControl' => 'Gain control',
+        'BodySerialNumber' => 'Body serial',
+        'LensSerialNumber' => 'Lens serial',
+        'CameraOwnerName' => 'Owner',
+    ];
+
+    $skipKeys = [
+        'THUMBNAIL' => true,
+        'MakerNote' => true,
+        'ComponentsConfiguration' => true,
+        'ExifVersion' => true,
+        'FlashPixVersion' => true,
+        'InteroperabilityIndex' => true,
+        'InteroperabilityVersion' => true,
+        'HTML' => true,
+        'MimeType' => true,
+        'SectionsFound' => true,
+        'FileName' => true,
+        'FileDateTime' => true,
+        'FileSize' => true,
+        'FileType' => true,
+        'COMPUTED' => true,
+    ];
 
     if (function_exists('exif_read_data') && gallery_file_may_have_exif($path)) {
         $exif = @exif_read_data($path, null, true);
         if (is_array($exif)) {
-            $map = [
-                ['IFD0', 'Make', 'Camera make'],
-                ['IFD0', 'Model', 'Camera model'],
-                ['EXIF', 'DateTimeOriginal', 'Taken'],
-                ['EXIF', 'ExposureTime', 'Exposure'],
-                ['EXIF', 'FNumber', 'Aperture'],
-                ['EXIF', 'ISOSpeedRatings', 'ISO'],
-                ['EXIF', 'FocalLength', 'Focal length'],
-                ['EXIF', 'LensModel', 'Lens'],
-                ['IFD0', 'Software', 'Software'],
-                ['IFD0', 'Artist', 'Artist'],
-                ['IFD0', 'Copyright', 'Copyright'],
-                ['COMPUTED', 'UserComment', 'Comment'],
-            ];
-            foreach ($map as $row) {
-                [$section, $key, $label] = $row;
-                if (!isset($exif[$section][$key])) {
-                    continue;
-                }
-                $raw = $exif[$section][$key];
-                $value = gallery_format_exif_value($key, $raw);
-                if ($value !== '') {
-                    $out['fields'][] = ['label' => $label, 'value' => $value];
+            // Priority pass: preferred tags in order
+            foreach ($preferred as $key => $label) {
+                foreach (['IFD0', 'EXIF', 'COMPUTED', 'WINXP'] as $section) {
+                    if (!isset($exif[$section][$key])) {
+                        continue;
+                    }
+                    $value = gallery_format_exif_value($key, $exif[$section][$key]);
+                    $add($out['fields'], $seen, $label, $value);
+                    break;
                 }
             }
 
-            // GPS if present
+            // GPS summary
             if (!empty($exif['GPS']['GPSLatitude']) && !empty($exif['GPS']['GPSLongitude'])) {
                 $lat = gallery_gps_to_deg($exif['GPS']['GPSLatitude'], $exif['GPS']['GPSLatitudeRef'] ?? 'N');
                 $lon = gallery_gps_to_deg($exif['GPS']['GPSLongitude'], $exif['GPS']['GPSLongitudeRef'] ?? 'E');
                 if ($lat !== null && $lon !== null) {
-                    $out['fields'][] = [
-                        'label' => 'Location',
-                        'value' => sprintf('%.5f, %.5f', $lat, $lon),
-                    ];
+                    $add($out['fields'], $seen, 'GPS', sprintf('%.6f, %.6f', $lat, $lon));
                 }
+            }
+            if (!empty($exif['GPS']['GPSAltitude'])) {
+                $alt = gallery_format_exif_value('GPSAltitude', $exif['GPS']['GPSAltitude']);
+                $ref = $exif['GPS']['GPSAltitudeRef'] ?? 0;
+                if ($alt !== '') {
+                    $add($out['fields'], $seen, 'Altitude', $alt . ((string) $ref === '1' ? ' m below sea level' : ' m'));
+                }
+            }
+
+            // Walk remaining sections/keys
+            foreach ($exif as $section => $entries) {
+                if (!is_array($entries)) {
+                    continue;
+                }
+                if ($section === 'THUMBNAIL' || $section === 'MAKERNOTE') {
+                    continue;
+                }
+                foreach ($entries as $key => $raw) {
+                    if (!is_string($key)) {
+                        continue;
+                    }
+                    if (isset($skipKeys[$key]) || isset($preferred[$key])) {
+                        continue;
+                    }
+                    // Skip binary / huge blobs and encoded maker notes
+                    if (is_string($raw) && (strlen($raw) > 400 || preg_match('/[\x00-\x08\x0B\x0C\x0E-\x1F]/', $raw))) {
+                        continue;
+                    }
+                    if (is_array($raw) && count($raw) > 32) {
+                        continue;
+                    }
+                    if (stripos($key, 'MakerNote') !== false || stripos($key, 'UndefinedTag') === 0 && $key !== 'UndefinedTag:0xA434') {
+                        // Keep LensModel alias only; skip other undefined binary-ish tags unless short
+                        if ($key !== 'UndefinedTag:0xA434') {
+                            $probe = gallery_format_exif_value($key, $raw);
+                            if ($probe === '' || strlen($probe) > 80) {
+                                continue;
+                            }
+                        }
+                    }
+                    $label = gallery_humanize_exif_key($key);
+                    if ($section === 'GPS' && in_array($key, ['GPSLatitude', 'GPSLongitude', 'GPSLatitudeRef', 'GPSLongitudeRef', 'GPSAltitude', 'GPSAltitudeRef'], true)) {
+                        continue; // already summarized
+                    }
+                    $value = gallery_format_exif_value($key, $raw);
+                    if ($section !== 'IFD0' && $section !== 'EXIF' && $section !== 'COMPUTED' && $section !== 'GPS' && $section !== 'WINXP') {
+                        $label = $section . ': ' . $label;
+                    }
+                    $add($out['fields'], $seen, $label, $value);
+                }
+            }
+        }
+    }
+
+    // IPTC from getimagesize APP13 if present
+    if (!empty($info['APP13']) && function_exists('iptcparse')) {
+        $iptc = @iptcparse($info['APP13']);
+        if (is_array($iptc)) {
+            $iptcMap = [
+                '2#005' => 'IPTC title',
+                '2#025' => 'Keywords',
+                '2#080' => 'IPTC author',
+                '2#116' => 'IPTC copyright',
+                '2#120' => 'IPTC caption',
+            ];
+            foreach ($iptcMap as $code => $label) {
+                if (empty($iptc[$code][0])) {
+                    continue;
+                }
+                $add($out['fields'], $seen, $label, gallery_format_exif_value($label, $iptc[$code][0]));
             }
         }
     }
 
     $out['has_fields'] = count($out['fields']) > 0;
     return $out;
+}
+
+function gallery_humanize_exif_key(string $key): string
+{
+    $key = preg_replace('/^UndefinedTag:/', '', $key) ?? $key;
+    $key = str_replace('_', ' ', $key);
+    $key = preg_replace('/([a-z])([A-Z])/', '$1 $2', $key) ?? $key;
+    return ucfirst(trim($key));
 }
 
 function gallery_format_bytes(int $bytes): string
@@ -428,8 +575,16 @@ function gallery_format_bytes(int $bytes): string
 function gallery_format_exif_value(string $key, $raw): string
 {
     if (is_array($raw)) {
-        if ($key === 'ISOSpeedRatings' && isset($raw[0])) {
+        if (in_array($key, ['ISOSpeedRatings', 'PhotographicSensitivity'], true) && isset($raw[0])) {
             return (string) $raw[0];
+        }
+        // LensSpecification often 4 rationals
+        if ($key === 'LensSpecification') {
+            $parts = [];
+            foreach ($raw as $part) {
+                $parts[] = gallery_format_exif_value('FNumber', $part);
+            }
+            return implode(' / ', array_filter($parts));
         }
         $raw = implode(' ', array_map('strval', $raw));
     }
@@ -437,33 +592,97 @@ function gallery_format_exif_value(string $key, $raw): string
     if ($raw === '') {
         return '';
     }
-    if ($key === 'FNumber' && is_numeric($raw)) {
-        return 'ƒ/' . rtrim(rtrim(number_format((float) $raw, 1, '.', ''), '0'), '.');
+
+    // Decode UTF-16 UserComment prefix UNICODE\0…
+    if ($key === 'UserComment' && strncmp($raw, 'UNICODE', 7) === 0) {
+        $raw = trim(substr($raw, 7));
     }
-    if ($key === 'FocalLength' && preg_match('/^(\d+)\/(\d+)$/', $raw, $m) && (int) $m[2] > 0) {
-        return round((int) $m[1] / (int) $m[2]) . ' mm';
+
+    if (in_array($key, ['FNumber', 'MaxApertureValue'], true)) {
+        $num = gallery_exif_rational_to_float($raw);
+        if ($num !== null && $num > 0) {
+            if ($key === 'MaxApertureValue') {
+                // APEX aperture → f-number ≈ 2^(value/2)
+                $f = pow(2, $num / 2);
+                return 'ƒ/' . rtrim(rtrim(number_format($f, 1, '.', ''), '0'), '.');
+            }
+            return 'ƒ/' . rtrim(rtrim(number_format($num, 1, '.', ''), '0'), '.');
+        }
     }
-    if ($key === 'ExposureTime') {
-        if (is_numeric($raw) && (float) $raw > 0 && (float) $raw < 1) {
-            return '1/' . round(1 / (float) $raw) . ' s';
+    if (in_array($key, ['FocalLength', 'FocalLengthIn35mmFilm'], true)) {
+        if (is_numeric($raw)) {
+            return round((float) $raw) . ' mm';
         }
         if (preg_match('/^(\d+)\/(\d+)$/', $raw, $m) && (int) $m[2] > 0) {
-            $v = (int) $m[1] / (int) $m[2];
-            if ($v > 0 && $v < 1) {
-                return '1/' . round(1 / $v) . ' s';
-            }
-            return rtrim(rtrim(number_format($v, 2, '.', ''), '0'), '.') . ' s';
+            return round((int) $m[1] / (int) $m[2]) . ' mm';
         }
     }
-    if (in_array($key, ['DateTimeOriginal', 'DateTime'], true) && preg_match('/^\d{4}:\d{2}:\d{2}/', $raw)) {
+    if ($key === 'ExposureTime' || $key === 'ShutterSpeedValue') {
+        $num = gallery_exif_rational_to_float($raw);
+        if ($num !== null && $num > 0) {
+            if ($key === 'ShutterSpeedValue') {
+                // APEX shutter → seconds = 2^(-value)
+                $sec = pow(2, -$num);
+            } else {
+                $sec = $num;
+            }
+            if ($sec > 0 && $sec < 1) {
+                return '1/' . max(1, (int) round(1 / $sec)) . ' s';
+            }
+            return rtrim(rtrim(number_format($sec, 2, '.', ''), '0'), '.') . ' s';
+        }
+    }
+    if ($key === 'ExposureBiasValue') {
+        $num = gallery_exif_rational_to_float($raw);
+        if ($num !== null) {
+            return sprintf('%+.1f EV', $num);
+        }
+    }
+    if ($key === 'DigitalZoomRatio') {
+        $num = gallery_exif_rational_to_float($raw);
+        if ($num !== null) {
+            return rtrim(rtrim(number_format($num, 2, '.', ''), '0'), '.') . '×';
+        }
+    }
+    if (in_array($key, ['DateTimeOriginal', 'DateTime', 'DateTimeDigitized'], true) && preg_match('/^\d{4}:\d{2}:\d{2}/', $raw)) {
         return str_replace(':', '-', substr($raw, 0, 10)) . substr($raw, 10);
     }
+
+    $enums = [
+        'ExposureProgram' => [0 => 'Not defined', 1 => 'Manual', 2 => 'Normal', 3 => 'Aperture priority', 4 => 'Shutter priority', 5 => 'Creative', 6 => 'Action', 7 => 'Portrait', 8 => 'Landscape'],
+        'MeteringMode' => [0 => 'Unknown', 1 => 'Average', 2 => 'Center-weighted', 3 => 'Spot', 4 => 'Multi-spot', 5 => 'Pattern', 6 => 'Partial'],
+        'WhiteBalance' => [0 => 'Auto', 1 => 'Manual'],
+        'ExposureMode' => [0 => 'Auto', 1 => 'Manual', 2 => 'Auto bracket'],
+        'ColorSpace' => [1 => 'sRGB', 65535 => 'Uncalibrated'],
+        'ResolutionUnit' => [2 => 'inches', 3 => 'cm'],
+        'Orientation' => [1 => 'Normal', 3 => 'Rotate 180', 6 => 'Rotate 90 CW', 8 => 'Rotate 90 CCW'],
+        'SceneCaptureType' => [0 => 'Standard', 1 => 'Landscape', 2 => 'Portrait', 3 => 'Night'],
+    ];
+    if (isset($enums[$key]) && is_numeric($raw) && isset($enums[$key][(int) $raw])) {
+        return $enums[$key][(int) $raw];
+    }
+
     // Strip control chars
     $raw = preg_replace('/[\x00-\x1F\x7F]/', '', $raw) ?? $raw;
-    if (function_exists('mb_substr')) {
-        return mb_substr($raw, 0, 200);
+    $raw = trim($raw);
+    if ($raw === '') {
+        return '';
     }
-    return substr($raw, 0, 200);
+    if (function_exists('mb_substr')) {
+        return mb_substr($raw, 0, 240);
+    }
+    return substr($raw, 0, 240);
+}
+
+function gallery_exif_rational_to_float(string $raw): ?float
+{
+    if (is_numeric($raw)) {
+        return (float) $raw;
+    }
+    if (preg_match('/^(-?\d+)\/(\d+)$/', $raw, $m) && (int) $m[2] > 0) {
+        return (float) $m[1] / (float) $m[2];
+    }
+    return null;
 }
 
 function gallery_gps_to_deg($coord, string $ref): ?float
