@@ -444,6 +444,7 @@ function gallery_read_photo_meta(string $slug, string $file): array
         'InteroperabilityIndex' => true,
         'InteroperabilityVersion' => true,
         'HTML' => true,
+        'Html' => true,
         'MimeType' => true,
         'SectionsFound' => true,
         'FileName' => true,
@@ -451,6 +452,31 @@ function gallery_read_photo_meta(string $slug, string $file): array
         'FileSize' => true,
         'FileType' => true,
         'COMPUTED' => true,
+        'Height' => true,
+        'Width' => true,
+        'IsColor' => true,
+        'Is Color' => true,
+        'ByteOrderMotorola' => true,
+        'Byte Order Motorola' => true,
+        'Compression' => true,
+        'JPEGInterchangeFormat' => true,
+        'JPEGInterchange Format' => true,
+        'JPEGInterchangeFormatLength' => true,
+        'JPEGInterchange Format Length' => true,
+        'SubIFD' => true,
+        'Sub IFD' => true,
+        'NewSubfileType' => true,
+        'New Sub File' => true,
+        'YCbCrCoefficients' => true,
+        'YCb Cr Coefficients' => true,
+        'YCbCrPositioning' => true,
+        'YCb Cr Positioning' => true,
+        'PrimaryChromaticities' => true,
+        'Primary Chromaticities' => true,
+        'WhitePoint' => true,
+        'White Point' => true,
+        'ExifOffset' => true,
+        'Exif Offset' => true,
     ];
 
     if (function_exists('exif_read_data') && gallery_file_may_have_exif($path)) {
@@ -489,7 +515,7 @@ function gallery_read_photo_meta(string $slug, string $file): array
                 if (!is_array($entries)) {
                     continue;
                 }
-                if ($section === 'THUMBNAIL' || $section === 'MAKERNOTE') {
+                if ($section === 'THUMBNAIL' || $section === 'MAKERNOTE' || $section === 'COMPUTED') {
                     continue;
                 }
                 foreach ($entries as $key => $raw) {
