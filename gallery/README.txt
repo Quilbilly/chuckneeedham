@@ -10,23 +10,24 @@ Public pages
   gallery-api.php       JSON catalog
   gallery-meta.php      EXIF / file info for the Info button
 
-Admin (captions)
-----------------
-  https://chuckneedham.com/gallery-admin.php
+Admin
+-----
+  https://chuckneedham.com/admin.php
 
-  First visit: create a password (stored hashed in
-  /home/chuckneedham/private/chuck-gallery/config.php — outside the web root).
+  Gallery tab: captions, delete photo, delete album
+  Feedback tab: read / delete public feedback
 
-  Captions / album titles saved by admin also live under
-  /home/chuckneedham/private/chuck-gallery/albums/<slug>.json
-  so a normal site deploy does not wipe them.
+  Password (first visit) → ~/private/chuck-gallery/config.php
+  Feedback data → ~/private/chuck-feedback/messages.json
+
+  Deletes affect the live site only. Tell Cursor to remove the same
+  paths from GitHub so the next publish does not restore them.
 
 Adding photos
 -------------
 1. Create gallery/albums/my-trip/
 2. Drop jpg / jpeg / png / webp / gif files in
-3. Optionally add album.json, or use gallery-admin.php after deploy
-4. Publish
+3. Ask Cursor to publish (GitHub backup + live deploy)
 
 Info button
 -----------

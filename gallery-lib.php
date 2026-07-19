@@ -125,7 +125,8 @@ function gallery_safe_album_slug(string $slug): ?string
     if ($slug === '' || $slug === '.' || $slug === '..' || strpos($slug, '/') !== false || strpos($slug, '\\') !== false) {
         return null;
     }
-    if (!preg_match('/^[A-Za-z0-9][A-Za-z0-9._-]{0,80}$/', $slug)) {
+    // Allow & for album names like Mom&Dad_Wedding
+    if (!preg_match('/^[A-Za-z0-9][A-Za-z0-9._&-]{0,80}$/', $slug)) {
         return null;
     }
     $dir = gallery_albums_root() . '/' . $slug;
@@ -491,4 +492,65 @@ function gallery_gps_to_deg($coord, string $ref): ?float
 function gallery_h(string $s): string
 {
     return htmlspecialchars($s, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+}
+
+function gallery_delete_photo(string $slug, string $file): void
+{
+    $slug = gallery_safe_album_slug($slug);
+    $file = gallery_safe_filename($file);
+    if ($slug === null || $file === null) {
+        throw new RuntimeException('Photo not found.');
+    }
+    $path = gallery_albums_root() . '/' . $slug . '/' . $file;
+    if (!is_file($path)) {
+        throw new RuntimeException('Photo not found.');
+    }
+    if (!@unlink($path)) {
+        throw new RuntimeException('Could not delete photo file.');
+    }
+
+    $meta = gallery_load_album_meta($slug);
+    if (isset($meta['captions'][$file])) {
+        unset($meta['captions'][$file]);
+    }
+    $base = pathinfo($file, PATHINFO_FILENAME);
+    if (isset($meta['captions'][$base])) {
+        unset($meta['captions'][$base]);
+    }
+    // Only persist private meta if album still has files or meta already existed
+    if (gallery_list_album_files($slug) || is_file(gallery_private_dir() . '/albums/' . $slug . '.json')) {
+        gallery_save_album_meta($slug, $meta);
+    }
+}
+
+function gallery_delete_album(string $slug): void
+{
+    $slug = gallery_safe_album_slug($slug);
+    if ($slug === null) {
+        throw new RuntimeException('Album not found.');
+    }
+    $dir = gallery_albums_root() . '/' . $slug;
+    $scan = scandir($dir);
+    if ($scan === false) {
+        throw new RuntimeException('Could not read album folder.');
+    }
+    foreach ($scan as $entry) {
+        if ($entry === '.' || $entry === '..') {
+            continue;
+        }
+        $path = $dir . '/' . $entry;
+        if (is_file($path) && !@unlink($path)) {
+            throw new RuntimeException('Could not delete ' . $entry);
+        }
+        if (is_dir($path)) {
+            throw new RuntimeException('Album contains unexpected subfolders.');
+        }
+    }
+    if (!@rmdir($dir)) {
+        throw new RuntimeException('Could not remove album folder.');
+    }
+    $privateMeta = gallery_private_dir() . '/albums/' . $slug . '.json';
+    if (is_file($privateMeta)) {
+        @unlink($privateMeta);
+    }
 }

@@ -124,19 +124,26 @@ Cursor can publish by running .\deploy.ps1 when you ask (use -GitHubOnly
 until the server hook is confirmed and www/www is writable).
 
 --------------------------------------------------------------------
-GALLERY ADMIN
+GALLERY + FEEDBACK ADMIN
 --------------------------------------------------------------------
-Public gallery:  https://chuckneedham.com/gallery.html
-Admin captions:  https://chuckneedham.com/gallery-admin.php
+Public gallery:   https://chuckneedham.com/gallery.html
+Public feedback:  https://chuckneedham.com/feedback.php
+Admin portal:     https://chuckneedham.com/admin.php
+                  (gallery-admin.php redirects here)
 
 First visit to admin creates a password. Config is stored outside the
 site folder so deploys do not wipe it:
   /home/chuckneedham/private/chuck-gallery/config.php
 
-Captions and album titles edited in admin are stored outside the site folder:
+Captions / album titles edited in admin:
   /home/chuckneedham/private/chuck-gallery/albums/<slug>.json
-so normal deploys do not wipe them. Optional album.json under each album
-folder is still read as a starting point.
+
+Feedback messages:
+  /home/chuckneedham/private/chuck-feedback/messages.json
+
+Admin can delete photos/albums on the live server. New photos should still
+be published via Cursor/GitHub. After an admin delete, ask Cursor to remove
+the same files from the repo so the next publish does not restore them.
 
 --------------------------------------------------------------------
 Docs
