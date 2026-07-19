@@ -360,6 +360,18 @@ function gallery_read_photo_meta(string $slug, string $file): array
         if ($value === '') {
             return;
         }
+        // Drop low-value technical leftovers
+        $skipLabels = [
+            'new sub file' => true,
+            'html' => true,
+            'is color' => true,
+            'byte order motorola' => true,
+            'sub ifd' => true,
+            'compression' => true,
+        ];
+        if (isset($skipLabels[strtolower($label)])) {
+            return;
+        }
         $key = strtolower($label . '|' . $value);
         if (isset($seen[$key])) {
             return;
