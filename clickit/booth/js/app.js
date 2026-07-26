@@ -24,10 +24,13 @@ const els = {
   emailError: document.getElementById("emailError"),
   doneMessage: document.getElementById("doneMessage"),
   errorMessage: document.getElementById("errorMessage"),
+  qrBlock: document.getElementById("qrBlock"),
+  qrImage: document.getElementById("qrImage"),
   btnStart: document.getElementById("btnStart"),
   btnRetake: document.getElementById("btnRetake"),
   btnKeep: document.getElementById("btnKeep"),
   btnSend: document.getElementById("btnSend"),
+  btnQrOnly: document.getElementById("btnQrOnly"),
   btnAgain: document.getElementById("btnAgain"),
   btnErrorReset: document.getElementById("btnErrorReset"),
 };
@@ -57,7 +60,7 @@ function showScreen(name) {
 function resetIdleTimer(screen) {
   clearTimeout(state.idleTimer);
   if (screen === "done" || screen === "error") {
-    state.idleTimer = setTimeout(() => resetToAttract(), 20000);
+    state.idleTimer = setTimeout(() => resetToAttract(), 30000);
   } else if (screen === "email" || screen === "review") {
     state.idleTimer = setTimeout(() => resetToAttract(), 120000);
   }
@@ -100,6 +103,7 @@ async function loadConfig() {
   els.consentRow.hidden = !state.config.requireEmailConsent;
   els.consentInput.required = Boolean(state.config.requireEmailConsent);
   els.btnRetake.hidden = !state.config.allowRetake;
+  els.btnQrOnly.hidden = state.config.allowQrOnly === false;
   setCameraPill(state.config.camera);
 }
 
@@ -118,7 +122,6 @@ async function runCountdown(seconds) {
   for (let i = seconds; i >= 1; i -= 1) {
     els.countdownValue.textContent = String(i);
     els.countdownValue.style.animation = "none";
-    // force reflow for pop animation
     void els.countdownValue.offsetWidth;
     els.countdownValue.style.animation = "";
     els.captureStatus.textContent = i === 1 ? "Smile!" : "Get ready";
@@ -146,7 +149,6 @@ async function startSession() {
     els.captureStatus.textContent = "Capturing…";
     els.captureProgress.textContent = `Photo set of ${state.config.photoCount}`;
 
-    // Optimistic progress ticks while server captures
     const progress = tickCaptureProgress(state.config.photoCount, state.config.intervalMs);
 
     const session = await api(`/booth/sessions/${state.sessionId}/capture`, {
@@ -200,6 +202,24 @@ async function retake() {
   }
 }
 
+function showDone(result, { emailedTo = null, queued = false } = {}) {
+  if (emailedTo && queued) {
+    els.doneMessage.textContent = `We’ll email ${emailedTo} when the network is back. You can also scan the QR now.`;
+  } else if (emailedTo) {
+    els.doneMessage.textContent = `Sent to ${emailedTo}. You can also scan the QR code.`;
+  } else {
+    els.doneMessage.textContent = "Scan the QR code to download your photos on your phone.";
+  }
+
+  if (result.qrDataUrl) {
+    els.qrImage.src = result.qrDataUrl;
+    els.qrBlock.hidden = false;
+  } else {
+    els.qrBlock.hidden = true;
+  }
+  showScreen("done");
+}
+
 async function submitEmail(event) {
   event.preventDefault();
   els.emailError.hidden = true;
@@ -213,16 +233,30 @@ async function submitEmail(event) {
       method: "POST",
       body: JSON.stringify(payload),
     });
-    els.doneMessage.textContent = `Sent to ${payload.email}. Check your inbox for the download link.`;
-    if (result.emailPreview) {
-      console.info("Email transport preview:", result.emailPreview);
-    }
-    showScreen("done");
+    if (result.emailPreview) console.info("Email transport preview:", result.emailPreview);
+    showDone(result, { emailedTo: payload.email, queued: result.queuedEmail });
   } catch (err) {
     els.emailError.textContent = err.message;
     els.emailError.hidden = false;
   } finally {
     els.btnSend.disabled = false;
+  }
+}
+
+async function submitQrOnly() {
+  els.emailError.hidden = true;
+  els.btnQrOnly.disabled = true;
+  try {
+    const result = await api(`/booth/sessions/${state.sessionId}/qr`, {
+      method: "POST",
+      body: "{}",
+    });
+    showDone(result);
+  } catch (err) {
+    els.emailError.textContent = err.message;
+    els.emailError.hidden = false;
+  } finally {
+    els.btnQrOnly.disabled = false;
   }
 }
 
@@ -235,6 +269,8 @@ function resetToAttract() {
   state.sessionId = null;
   els.emailForm.reset();
   els.emailError.hidden = true;
+  els.qrBlock.hidden = true;
+  els.qrImage.removeAttribute("src");
   showScreen("attract");
   startLivePreview();
   refreshCamera();
@@ -244,6 +280,7 @@ els.btnStart.addEventListener("click", startSession);
 els.btnRetake.addEventListener("click", retake);
 els.btnKeep.addEventListener("click", () => showScreen("email"));
 els.emailForm.addEventListener("submit", submitEmail);
+els.btnQrOnly.addEventListener("click", submitQrOnly);
 els.btnAgain.addEventListener("click", resetToAttract);
 els.btnErrorReset.addEventListener("click", resetToAttract);
 

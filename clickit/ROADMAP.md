@@ -1,35 +1,28 @@
 # ClickIt roadmap
 
-## Now (shipped in v0.1)
+## Shipped
 
 - [x] Brand + booth kiosk flow
 - [x] Countdown / burst / interval settings
 - [x] Review + retake
 - [x] Email capture + consent
-- [x] Local upload + expiring download links
-- [x] Admin settings / sessions / resend / stats
-- [x] Mock camera + Sony provider stub
+- [x] QR-only delivery
+- [x] Local storage + S3/R2 provider
+- [x] SMTP + JSON email transports
+- [x] Offline upload/email retry queue
+- [x] Electron fullscreen kiosk shell
+- [x] Sony sidecar protocol + dev bridge
+- [x] Admin settings / sessions / resend / queue controls
 
 ## Next
 
-- [ ] Electron (or Tauri) fullscreen kiosk shell + auto-start
-- [ ] Sony Camera Remote SDK sidecar wired to `sonyCamera.js`
-- [ ] S3 / Cloudflare R2 storage provider
-- [ ] Real SMTP templates + deliverability checks
-- [ ] Offline capture queue + upload retry
-- [ ] On-screen keyboard for touch PCs
-- [ ] QR code on thank-you screen (phone download without email)
-- [ ] Health watchdog (camera / disk / network)
-
-## Later
-
+- [ ] Real Sony Camera Remote SDK binary implementing the sidecar protocol
+- [ ] Signed cloud download URLs on the guest page when local files are pruned
+- [ ] Touch on-screen keyboard
+- [ ] Windows/macOS installer + code signing
+- [ ] Health watchdog tray icon
 - [ ] Print path (4×6)
 - [ ] Event branding frames / watermarks
 - [ ] GIF / boomerang from burst
 - [ ] Multi-language UI
-- [ ] Staff operator second screen
 - [ ] Pedal / hardware shutter button
-- [ ] Social wall / moderated gallery
-- [ ] Analytics export
-- [ ] Face-find gallery (explicit consent only)
-- [ ] Multi-booth sync for large events

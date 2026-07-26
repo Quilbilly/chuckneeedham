@@ -8,6 +8,9 @@ const els = {
   authError: document.getElementById("authError"),
   stats: document.getElementById("stats"),
   cameraLine: document.getElementById("cameraLine"),
+  storageLine: document.getElementById("storageLine"),
+  queueLine: document.getElementById("queueLine"),
+  btnProcessQueue: document.getElementById("btnProcessQueue"),
   settingsForm: document.getElementById("settingsForm"),
   settingsOk: document.getElementById("settingsOk"),
   settingsError: document.getElementById("settingsError"),
@@ -61,12 +64,16 @@ async function refreshAll() {
     <div><dt>Sessions</dt><dd>${stats.sessions}</dd></div>
     <div><dt>Delivered</dt><dd>${stats.delivered}</dd></div>
     <div><dt>Photos</dt><dd>${stats.photos}</dd></div>
-    <div><dt>Errors</dt><dd>${stats.errors}</dd></div>
+    <div><dt>Queued</dt><dd>${stats.queued || 0}</dd></div>
   `;
 
   els.cameraLine.textContent = camera.connected
     ? `${camera.model} · ${camera.message}`
     : `Camera: ${camera.message}`;
+  els.storageLine.textContent = stats.storage
+    ? `Storage: ${stats.storage.provider}${stats.storage.bucket ? ` · ${stats.storage.bucket}` : ""}`
+    : "Storage: local";
+  els.queueLine.textContent = `Queue pending: ${stats.pendingJobs || 0}`;
 
   const form = els.settingsForm;
   form.eventName.value = settings.eventName;
@@ -77,6 +84,7 @@ async function refreshAll() {
   form.brandAccent.value = settings.brandAccent || "#f5a623";
   form.allowRetake.checked = Boolean(settings.allowRetake);
   form.requireEmailConsent.checked = Boolean(settings.requireEmailConsent);
+  form.allowQrOnly.checked = settings.allowQrOnly !== false;
   form.emailSubject.value = settings.emailSubject;
   form.downloadLinkHours.value = settings.downloadLinkHours;
 
@@ -122,6 +130,14 @@ els.btnAuth.addEventListener("click", () => {
 });
 
 els.btnRefresh.addEventListener("click", () => refreshAll().catch((e) => alert(e.message)));
+els.btnProcessQueue.addEventListener("click", async () => {
+  try {
+    await adminApi("/admin/queue/process", { method: "POST", body: "{}" });
+    await refreshAll();
+  } catch (err) {
+    alert(err.message);
+  }
+});
 
 els.settingsForm.addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -137,6 +153,7 @@ els.settingsForm.addEventListener("submit", async (event) => {
     brandAccent: form.brandAccent.value,
     allowRetake: form.allowRetake.checked,
     requireEmailConsent: form.requireEmailConsent.checked,
+    allowQrOnly: form.allowQrOnly.checked,
     emailSubject: form.emailSubject.value.trim(),
     downloadLinkHours: Number(form.downloadLinkHours.value),
   };

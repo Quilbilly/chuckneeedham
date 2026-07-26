@@ -10,8 +10,7 @@ import {
   ensureSessionUploadDir,
   photoFilePath,
 } from "../services/store.js";
-import { sendDownloadEmail } from "../services/email.js";
-import { config } from "../config.js";
+import { afterCapture, deliverSession } from "../services/delivery.js";
 
 const router = Router();
 
@@ -29,6 +28,7 @@ router.get("/booth/config", async (_req, res) => {
     brandAccent: settings.brandAccent,
     allowRetake: settings.allowRetake,
     requireEmailConsent: settings.requireEmailConsent,
+    allowQrOnly: settings.allowQrOnly !== false,
     attractTagline: settings.attractTagline,
     camera,
   });
@@ -112,7 +112,8 @@ router.post("/booth/sessions/:id/capture", async (req, res) => {
     session.photos = photos;
     session.status = "review";
     await saveSession(session);
-    return res.json(publicSession(session));
+    await afterCapture(session);
+    return res.json(publicSession(await getSession(session.id)));
   } catch (err) {
     session.status = "error";
     session.error = err.message;
@@ -163,48 +164,39 @@ router.post("/booth/sessions/:id/email", async (req, res) => {
   const session = await getSession(req.params.id);
   if (!session) return res.status(404).json({ error: "Session not found" });
 
-  const email = String(req.body?.email || "").trim().toLowerCase();
-  const consent = Boolean(req.body?.consent);
-  const settings = await getSettings();
-
-  if (!isValidEmail(email)) {
-    return res.status(400).json({ error: "Enter a valid email address" });
-  }
-  if (settings.requireEmailConsent && !consent) {
-    return res.status(400).json({ error: "Consent is required to send photos" });
-  }
-  if (!session.photos?.length) {
-    return res.status(400).json({ error: "No photos to deliver" });
-  }
-
-  const expiresAt = new Date(
-    Date.now() + (settings.downloadLinkHours || config.downloadLinkHours) * 3600 * 1000
-  ).toISOString();
-
-  session.email = email;
-  session.consent = consent;
-  session.status = "delivering";
-  session.expiresAt = expiresAt;
-  await saveSession(session);
-
-  const downloadUrl = `${config.publicBaseUrl}/d/${session.token}`;
-
   try {
-    const mail = await sendDownloadEmail({ to: email, session, downloadUrl });
-    session.status = "delivered";
-    session.emailedAt = new Date().toISOString();
-    await saveSession(session);
+    const result = await deliverSession(session, {
+      email: String(req.body?.email || "").trim().toLowerCase(),
+      consent: Boolean(req.body?.consent),
+      qrOnly: false,
+    });
     return res.json({
       ok: true,
-      session: publicSession(session),
-      downloadUrl,
-      emailPreview: mail.preview,
+      session: publicSession(result.session),
+      downloadUrl: result.downloadUrl,
+      qrDataUrl: result.qrDataUrl,
+      queuedEmail: result.queuedEmail,
+      emailPreview: result.emailPreview,
     });
   } catch (err) {
-    session.status = "error";
-    session.error = err.message;
-    await saveSession(session);
-    return res.status(500).json({ error: err.message });
+    return res.status(err.status || 500).json({ error: err.message });
+  }
+});
+
+router.post("/booth/sessions/:id/qr", async (req, res) => {
+  const session = await getSession(req.params.id);
+  if (!session) return res.status(404).json({ error: "Session not found" });
+
+  try {
+    const result = await deliverSession(session, { qrOnly: true });
+    return res.json({
+      ok: true,
+      session: publicSession(result.session),
+      downloadUrl: result.downloadUrl,
+      qrDataUrl: result.qrDataUrl,
+    });
+  } catch (err) {
+    return res.status(err.status || 500).json({ error: err.message });
   }
 });
 
@@ -224,10 +216,6 @@ function publicSession(session) {
 function clamp(n, min, max) {
   if (!Number.isFinite(n)) return min;
   return Math.min(max, Math.max(min, n));
-}
-
-function isValidEmail(email) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
 export default router;

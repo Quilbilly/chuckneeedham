@@ -15,6 +15,7 @@ export async function initStore() {
   await ensureDir(config.paths.sessions);
   await ensureDir(config.paths.uploads);
   await ensureDir(config.paths.tmp);
+  await ensureDir(config.paths.queue);
 }
 
 export async function createSession(partial = {}) {

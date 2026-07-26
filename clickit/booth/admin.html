@@ -40,6 +40,9 @@
           <h2>Status</h2>
           <dl class="stats" id="stats"></dl>
           <p class="camera-line" id="cameraLine">Camera…</p>
+          <p class="camera-line" id="storageLine">Storage…</p>
+          <p class="camera-line" id="queueLine">Queue…</p>
+          <button type="button" class="cta cta--ghost" id="btnProcessQueue">Process queue now</button>
         </article>
 
         <article class="admin-card">
@@ -53,6 +56,7 @@
             <label class="field"><span>Accent color</span><input name="brandAccent" type="color"></label>
             <label class="consent"><input name="allowRetake" type="checkbox"><span>Allow retakes</span></label>
             <label class="consent"><input name="requireEmailConsent" type="checkbox"><span>Require email consent</span></label>
+            <label class="consent"><input name="allowQrOnly" type="checkbox"><span>Allow QR-only delivery</span></label>
             <label class="field"><span>Email subject</span><input name="emailSubject" required></label>
             <label class="field"><span>Download link hours</span><input name="downloadLinkHours" type="number" min="1" max="8760" required></label>
             <button type="submit" class="cta cta--primary">Save settings</button>

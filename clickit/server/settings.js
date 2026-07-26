@@ -9,6 +9,7 @@ const DEFAULTS = {
   brandAccent: config.defaults.brandAccent,
   allowRetake: config.defaults.allowRetake,
   requireEmailConsent: config.defaults.requireEmailConsent,
+  allowQrOnly: config.defaults.allowQrOnly,
   attractTagline: config.defaults.attractTagline,
   emailSubject: "Your ClickIt photos are ready",
   downloadLinkHours: config.downloadLinkHours,

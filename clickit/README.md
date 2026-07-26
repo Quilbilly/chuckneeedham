@@ -2,7 +2,7 @@
 
 Tethered photo booth for a computer paired with a **Sony ILCE-7RM5**.
 
-Guests tap **Take my picture**, ClickIt counts down, captures a set of photos, uploads them, and emails a private download link.
+Guests tap **Take my picture**, ClickIt counts down, captures a set, stores photos (local and/or S3/R2), and delivers a download link by **email** and/or **QR code**.
 
 ## Quick start
 
@@ -13,68 +13,80 @@ npm install
 npm run dev
 ```
 
-Open:
-
-- Booth kiosk: [http://localhost:8787/booth/](http://localhost:8787/booth/)
+- Booth: [http://localhost:8787/booth/](http://localhost:8787/booth/)
 - Admin: [http://localhost:8787/admin](http://localhost:8787/admin) (token `dev-admin-token`)
 
-Default camera mode is **mock** so you can build UI/workflows without the Sony body attached.
+## The four production pillars
 
-## MVP included
+### 1) Electron kiosk shell
+```bash
+npm run kiosk
+```
+Fullscreen booth app. See [KIOSK.md](./KIOSK.md) for auto-start.
 
-- Attract screen → countdown → multi-shot capture → review/retake → email → download page
-- Configurable countdown, photo count, interval, branding, consent
-- Session store on disk + local photo storage
-- Email delivery via JSON transport (logs message) or SMTP
-- Admin settings, session list, resend email, basic stats
-- Camera provider interface with **mock** + **Sony stub**
+### 2) Sony ILCE-7RM5 tether bridge
+```bash
+# Terminal A — protocol sidecar (dev stand-in for SDK binary)
+npm run sony-bridge
+
+# Terminal B
+CAMERA_PROVIDER=sony npm run dev
+```
+Protocol docs: [sidecars/sony-bridge/PROTOCOL.md](./sidecars/sony-bridge/PROTOCOL.md)
+
+Replace the Node sidecar with a Sony Camera Remote SDK binary that speaks the same HTTP JSON API.
+
+### 3) S3/R2 + real SMTP
+Set in `.env`:
+```bash
+STORAGE_PROVIDER=s3
+S3_ENDPOINT=https://<accountid>.r2.cloudflarestorage.com   # or AWS
+S3_BUCKET=clickit-photos
+S3_ACCESS_KEY_ID=...
+S3_SECRET_ACCESS_KEY=...
+S3_REGION=auto
+
+EMAIL_TRANSPORT=smtp
+SMTP_HOST=smtp.example.com
+SMTP_PORT=587
+SMTP_USER=...
+SMTP_PASS=...
+EMAIL_FROM="ClickIt <noreply@yourdomain.com>"
+```
+
+### 4) Offline queue + QR download
+- Captures always save locally first
+- Cloud upload / email failures are queued in `data/queue/` and retried automatically
+- Guests can skip email and scan a QR on the thank-you screen
+- Admin can “Process queue now”
+
+## Scripts
+
+| Command | Purpose |
+|---|---|
+| `npm run dev` | API + booth (nodemon) |
+| `npm run sony-bridge` | Dev Sony protocol sidecar |
+| `npm run dev:sony` | Sidecar + server together |
+| `npm run kiosk` | Electron fullscreen booth |
 
 ## Architecture
 
 ```
 clickit/
   booth/                 # Kiosk + admin UI
+  electron/              # Fullscreen desktop shell
   public/download/       # Guest download pages
+  sidecars/sony-bridge/  # Camera protocol (+ SDK swap point)
   server/
-    routes/              # booth, admin, download, health
     services/
-      camera/            # mockCamera + sonyCamera stub
+      camera/            # mock + sony (sidecar client)
+      storage.js         # local + S3/R2
+      queue.js           # offline retry worker
+      delivery.js        # upload + email + QR
       email.js
-      store.js
-    settings.js
-  data/                  # local sessions + uploads (gitignored)
+      qr.js
 ```
 
-Flow:
+## Roadmap
 
-1. Booth UI creates a session
-2. UI runs countdown, then asks API to capture
-3. Camera provider returns JPEG frames (mock or future Sony SDK)
-4. Photos saved under `data/uploads/<sessionId>/`
-5. Guest submits email → ClickIt sends `/d/<token>` link
-6. Download page serves the set until expiry
-
-## Sony ILCE-7RM5
-
-Set `CAMERA_PROVIDER=sony` only after the SDK bridge exists.
-
-Planned integration:
-
-- Sony Camera Remote SDK (USB tether)
-- Sidecar or native addon exposing: connect, live view JPEG, still capture
-- Map those calls onto `server/services/camera/sonyCamera.js`
-
-Until then, keep `CAMERA_PROVIDER=mock`.
-
-## Email
-
-- `EMAIL_TRANSPORT=json` (default): prints/stores message JSON — great for local demos
-- `EMAIL_TRANSPORT=smtp`: use `SMTP_*` vars and `EMAIL_FROM`
-
-## Admin
-
-Protect `/api/admin/*` with `ADMIN_TOKENS`. The admin UI stores the token in `localStorage` for the operator machine only.
-
-## Next build slices
-
-See [ROADMAP.md](./ROADMAP.md) for the full feature backlog (printer, offline queue, Electron kiosk shell, S3/R2, QR, overlays, etc.).
+See [ROADMAP.md](./ROADMAP.md).

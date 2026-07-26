@@ -1,8 +1,7 @@
 import { Router } from "express";
-import fs from "node:fs/promises";
 import path from "node:path";
 import { getSessionByToken } from "../services/store.js";
-import { photoFilePath } from "../services/store.js";
+import { getPhotoReadStreamOrPath } from "../services/storage.js";
 
 const router = Router();
 
@@ -32,14 +31,15 @@ router.get("/download/:token/photos/:filename", async (req, res) => {
   }
 
   const safe = path.basename(req.params.filename);
-  const abs = photoFilePath(session.id, safe);
-  try {
-    await fs.access(abs);
-    res.set("Content-Disposition", `attachment; filename="${safe}"`);
-    return res.sendFile(abs);
-  } catch {
-    return res.status(404).json({ error: "Photo not found" });
+  const asset = await getPhotoReadStreamOrPath(session, safe);
+  if (!asset) return res.status(404).json({ error: "Photo not found" });
+
+  if (asset.kind === "url") {
+    return res.redirect(asset.url);
   }
+
+  res.set("Content-Disposition", `attachment; filename="${asset.filename}"`);
+  return res.sendFile(asset.path);
 });
 
 export default router;

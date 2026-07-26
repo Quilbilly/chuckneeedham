@@ -8,11 +8,16 @@ async function getTransporter() {
   if (transporterPromise) return transporterPromise;
 
   transporterPromise = (async () => {
-    if (config.emailTransport === "smtp" && config.smtp.host) {
+    if (config.emailTransport === "smtp") {
+      if (!config.smtp.host) {
+        throw Object.assign(new Error("SMTP_HOST is not configured"), {
+          code: "SMTP_NOT_CONFIGURED",
+        });
+      }
       return nodemailer.createTransport({
         host: config.smtp.host,
         port: config.smtp.port,
-        secure: config.smtp.port === 465,
+        secure: config.smtp.secure || config.smtp.port === 465,
         auth: config.smtp.user
           ? { user: config.smtp.user, pass: config.smtp.pass }
           : undefined,
@@ -25,11 +30,20 @@ async function getTransporter() {
   return transporterPromise;
 }
 
+export async function verifyEmailTransport() {
+  const transport = await getTransporter();
+  if (typeof transport.verify === "function" && config.emailTransport === "smtp") {
+    await transport.verify();
+  }
+  return { transport: config.emailTransport, ok: true };
+}
+
 export async function sendDownloadEmail({ to, session, downloadUrl }) {
   const settings = await getSettings();
   const transport = await getTransporter();
   const subject = settings.emailSubject || "Your ClickIt photos are ready";
   const count = session.photos?.length || 0;
+  const accent = settings.brandAccent || "#F5A623";
 
   const text = [
     `Thanks for using ClickIt at ${settings.eventName}!`,
@@ -48,7 +62,7 @@ export async function sendDownloadEmail({ to, session, downloadUrl }) {
       <p style="font-size:16px;line-height:1.5;">Thanks for stopping by <strong>${escapeHtml(settings.eventName)}</strong>.</p>
       <p style="font-size:16px;line-height:1.5;">Your ${count} photo${count === 1 ? "" : "s"} ${count === 1 ? "is" : "are"} ready to download.</p>
       <p style="margin:28px 0;">
-        <a href="${downloadUrl}" style="background:#F5A623;color:#142018;text-decoration:none;padding:14px 22px;border-radius:999px;font-weight:700;display:inline-block;">
+        <a href="${downloadUrl}" style="background:${accent};color:#142018;text-decoration:none;padding:14px 22px;border-radius:999px;font-weight:700;display:inline-block;">
           Download your photos
         </a>
       </p>

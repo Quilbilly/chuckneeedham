@@ -63,7 +63,7 @@
     <section class="screen screen--email" data-screen-panel="email" hidden>
       <div class="email-card">
         <h2>Where should we send them?</h2>
-        <p class="lede">We’ll email a private link to download your photos.</p>
+        <p class="lede">Email a private link, or skip and scan a QR code instead.</p>
         <form id="emailForm" class="email-form" autocomplete="off">
           <label class="field">
             <span>Email</span>
@@ -75,16 +75,21 @@
           </label>
           <p class="form-error" id="emailError" hidden></p>
           <button type="submit" class="cta cta--primary" id="btnSend">Send my photos</button>
+          <button type="button" class="cta cta--ghost" id="btnQrOnly">Skip email — show QR</button>
         </form>
       </div>
     </section>
 
     <!-- Done -->
     <section class="screen screen--done" data-screen-panel="done" hidden>
-      <div class="done-copy">
+      <div class="done-copy done-copy--qr">
         <p class="brand-hero">ClickIt</p>
         <h2>You’re all set</h2>
         <p class="lede" id="doneMessage">Check your inbox for the download link.</p>
+        <div class="qr-block" id="qrBlock" hidden>
+          <img id="qrImage" alt="QR code to download photos">
+          <p class="qr-hint">Scan to download on your phone</p>
+        </div>
         <button type="button" class="cta cta--primary" id="btnAgain">Start over</button>
       </div>
     </section>

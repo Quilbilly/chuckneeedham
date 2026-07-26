@@ -367,6 +367,30 @@ h2 {
   width: 100%;
 }
 
+.done-copy--qr {
+  text-align: center;
+}
+
+.qr-block {
+  margin: 1.25rem auto 0.5rem;
+  width: min(100%, 16rem);
+}
+
+.qr-block img {
+  width: 100%;
+  border-radius: 1rem;
+  background: #fff;
+  padding: 0.75rem;
+  box-shadow: var(--shadow);
+  animation: softIn 0.45s ease both;
+}
+
+.qr-hint {
+  margin-top: 0.65rem;
+  color: var(--muted);
+  font-weight: 600;
+}
+
 @keyframes rise {
   from {
     opacity: 0;
